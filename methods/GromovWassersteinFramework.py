@@ -357,7 +357,7 @@ def gromov_wasserstein_barycenter(costs: Dict, p_s: Dict, p_center: np.ndarray,
         # update optimal transport
         d_gw = {}
         for n in costs.keys():
-            transports[n], d_gw[n], p_s[n] = gromov_wasserstein_discrepancy(costs[n], barycenter0,
+            transports[n], _, _ = gromov_wasserstein_discrepancy(costs[n], barycenter0,
                                                                             p_s[n], p_center,
                                                                             ot_hyperpara, transports[n])
         # averaging cost matrix

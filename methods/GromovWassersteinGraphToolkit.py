@@ -16,7 +16,8 @@ import methods.GromovWassersteinFramework as Gwl
 import numpy as np
 from scipy.sparse import csr_matrix
 from typing import List, Dict, Tuple
-
+from utils import netotc
+import networkx as nx
 
 def estimate_target_distribution(probs: Dict, dim_t: int = 2) -> np.ndarray:
     """
@@ -221,7 +222,7 @@ def graph_partition(cost_s: csr_matrix, p_s: np.ndarray, p_t: np.ndarray,
     """
     cost_t = csr_matrix(np.diag(p_t[:, 0]))
     # cost_t = 1 / (1 + cost_t)
-    trans, d_gw, p_s = Gwl.gromov_wasserstein_discrepancy(cost_s, cost_t, p_s, p_t, ot_hyperpara, trans0)
+    trans, _, _ = Gwl.gromov_wasserstein_discrepancy(cost_s, cost_t, p_s, p_t, ot_hyperpara, trans0)
     sub_costs, sub_probs, sub_idx2nodes = node_cluster_assignment(cost_s, trans, p_s, p_t, idx2node)
     return sub_costs, sub_probs, sub_idx2nodes, trans
 
@@ -266,7 +267,7 @@ def recursive_graph_partition(cost_s: csr_matrix, p_s: np.ndarray, idx2node: Dic
             cost_t = csr_matrix(np.diag(p_t[:, 0]))
             # cost_t = 1 / (1 + cost_t)
             ot_hyperpara['outer_iteration'] = probs_all[i].shape[0]
-            trans, d_gw, p_s = Gwl.gromov_wasserstein_discrepancy(costs_all[i],
+            trans, _, _ = Gwl.gromov_wasserstein_discrepancy(costs_all[i],
                                                                   cost_t,
                                                                   probs_all[i],
                                                                   p_t,
@@ -462,6 +463,44 @@ def recursive_multi_graph_partition(costs: Dict, probs: Dict, idx2nodes: Dict,
 
     return costs_final, probs_final, idx2nodes_final
 
+def convert2otc(cost_s, cost_t):
+    A1 = np.array(cost_s.todense())
+    A2 = np.array(cost_t.todense())
+    V1 = np.array(list(nx.spring_layout(nx.from_numpy_array(cost_s)).values()))
+    V2 = np.array(list(nx.spring_layout(nx.from_numpy_array(cost_t)).values()))
+    P1 = A1 / np.sum(A1, axis=1)[:, np.newaxis]
+    P2 = A2 / np.sum(A2, axis=1)[:, np.newaxis]
+    n1 = A1.shape[0]
+    n2 = A2.shape[0]
+    c = np.zeros((n1, n2)) # checked
+    for i in range(n1):
+        for j in range(n2):
+            c[i, j] = np.sum((V1[i, :] - V2[j, :]) ** 2)
+    return P1, P2, c
+
+def direct_graph_matching_netotc(cost_s: csr_matrix, cost_t: csr_matrix, p_s: np.ndarray, p_t: np.ndarray,
+                          idx2node_s: Dict, idx2node_t: Dict, ot_hyperpara: Dict) -> Tuple[List, List, List]:
+    """
+    Matching two graphs directly via calculate their Gromov-Wasserstein discrepancy.
+    Args:
+        cost_s: a (n_s, n_s) adjacency matrix of source graph
+        cost_t: a (n_t, n_t) adjacency matrix of target graph
+        p_s: a (n_s, 1) vector representing the distribution of source nodes
+        p_t: a (n_t, 1) vector representing the distribution of target nodes
+        idx2node_s: a dictionary {key: idx of cost_s's row, value: the name of source node}
+        idx2node_t: a dictionary {key: idx of cost_s's row, value: the name of source node}
+        ot_hyperpara: a dictionary of hyperparameters
+
+    Returns:
+        pairs_idx: a list of node index pairs
+        pairs_name: a list of node name pairs
+        pairs_confidence: a list of confidence of node pairs
+    """
+    _, _, trans = netotc.exact_otc(*convert2otc(cost_s, cost_t))
+
+    print(f"gromov_wasserstein_discrepancy: \n{trans}")
+    pairs_idx, pairs_name, pairs_confidence = node_pair_assignment(trans, p_s, p_t, idx2node_s, idx2node_t)
+    return pairs_idx, pairs_name, pairs_confidence
 
 def direct_graph_matching(cost_s: csr_matrix, cost_t: csr_matrix, p_s: np.ndarray, p_t: np.ndarray,
                           idx2node_s: Dict, idx2node_t: Dict, ot_hyperpara: Dict) -> Tuple[List, List, List]:
@@ -481,7 +520,8 @@ def direct_graph_matching(cost_s: csr_matrix, cost_t: csr_matrix, p_s: np.ndarra
         pairs_name: a list of node name pairs
         pairs_confidence: a list of confidence of node pairs
     """
-    trans, d_gw, p_s = Gwl.gromov_wasserstein_discrepancy(cost_s, cost_t, p_s, p_t, ot_hyperpara)
+    trans, _, _ = Gwl.gromov_wasserstein_discrepancy(cost_s, cost_t, p_s, p_t, ot_hyperpara)
+    print(f"gromov_wasserstein_discrepancy: {trans}")
     pairs_idx, pairs_name, pairs_confidence = node_pair_assignment(trans, p_s, p_t, idx2node_s, idx2node_t)
     return pairs_idx, pairs_name, pairs_confidence
 

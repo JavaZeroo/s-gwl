@@ -16,7 +16,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-with open('data/PPI_syn_database.pkl', 'rb') as f:
+with open('data/lollipop_graph_database.pkl', 'rb') as f:
     database = pickle.load(f)
 
 num_iter = 2000
@@ -77,7 +77,7 @@ cost_s_dense = 0.5 * (cost_s + cost_s.T).todense()
 cost_t_dense = 0.5 * (cost_t + cost_t.T).todense()
 
 # 保存变量
-with open('graph_data.pkl', 'wb') as f:
+with open('graph_data_lollipop.pkl', 'wb') as f:
     pickle.dump({
         'cost_s_dense': cost_s_dense,
         'cost_t_dense': cost_t_dense,
